@@ -31,7 +31,10 @@
 "use strict";
 
 import {Service} from "./service";
+import {ConsoleLogger} from "@mojaloop/logging-bc-public-types-lib";
 
-Service.start().then(() => {
+Service.start(
+    new ConsoleLogger()
+).then(() => {
     console.log("Service start complete");
 });

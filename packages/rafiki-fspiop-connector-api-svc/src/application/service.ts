@@ -126,10 +126,6 @@ export class Service {
         await this.configClient.bootstrap(true);
         await this.configClient.fetch();
         */
-
-
-        // TODO start actual service code
-
         await this.setupExpress();
 
         // remove startup timeout
@@ -150,7 +146,6 @@ export class Service {
             //     const strMetrics = await (this.metrics as PrometheusMetrics).getMetricsForPrometheusScrapper();
             //     return res.send(strMetrics);
             // });
-
 
             // hook actual app routes
             const routes = new ExpressRoutes(FSIOP_URL, Number(FSIOP_TIMEOUT), this.logger);
