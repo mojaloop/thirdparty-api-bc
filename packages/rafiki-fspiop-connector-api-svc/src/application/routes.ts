@@ -30,25 +30,35 @@
 
 "use strict";
 
+import axios, {AxiosError, AxiosInstance, AxiosResponse} from "axios";
 import express from "express";
 import {ILogger} from "@mojaloop/logging-bc-public-types-lib";
-import {IConfigurationClient} from "@mojaloop/platform-configuration-bc-public-types-lib";
-
+import {randomUUID} from "crypto";
 
 export class ExpressRoutes {
     private _logger:ILogger;
-    private _configClient: IConfigurationClient;
 
     private _mainRouter = express.Router();
+    private readonly httpClient: AxiosInstance;
 
+    private static readonly UNKNOWN_ERROR_MESSAGE: string = "unknown error";
 
-    constructor(configClient: IConfigurationClient, logger:ILogger) {
-        this._configClient = configClient;
+    constructor(fsiopUrl : string, timeoutMs: number, logger:ILogger) {
         this._logger = logger;
+
+        // http client:
+        this.httpClient = axios.create({
+            baseURL: fsiopUrl,
+            timeout: timeoutMs
+        });
 
         // endpoints
         this._mainRouter.get("/", this.getExample.bind(this));
         this._mainRouter.get("/version", this.getVersion.bind(this));
+
+        // business endpoints
+        this._mainRouter.post("/mjl-quote", this.postMJLCreateQuote.bind(this));
+        this._mainRouter.post("/quotes", this.postMJLCreateQuote.bind(this));
     }
 
     get MainRouter():express.Router{
@@ -63,13 +73,68 @@ export class ExpressRoutes {
     private async getVersion(req: express.Request, res: express.Response, next: express.NextFunction){
         this._logger.debug("Got request to version endpoint");
         return res.send({
+            environmentName: "thirdparty-api-bc-rafiki-fspiop-connector-api-svc",
+            bcName: "thirdparty-api-bc",
+            appName: "thirdparty-api-bc-rafiki-fspiop-connector-api-svc",
+            appVersion: "0.1",
+            configsIterationNumber: 1
+        });
+        /*
+        return res.send({
             environmentName: this._configClient.environmentName,
             bcName: this._configClient.boundedContextName,
             appName: this._configClient.applicationName,
             appVersion: this._configClient.applicationVersion,
             configsIterationNumber: this._configClient.appConfigs.iterationNumber
-        });
+        });*/
+    }
+
+    private async postMJLCreateQuote(req: express.Request, res: express.Response): Promise<void> {
+        try {
+            try {
+                const axiosResponse: AxiosResponse = await this.httpClient.put("/quotes", {
+                    requesterFspId: req.body.requesterFspId,
+                    destinationFspId: req.body.destinationFspId,
+                    quoteId: req.body.quoteId,
+                    bulkQuoteId: "",
+                    transactionId: req.body.transactionId,
+                    payeePartyIdType: req.body.payeePartyIdType,
+                    payeePartyIdentifier: req.body.payeePartyIdentifier,
+                    payeeFspId: req.body.payeeFspId,
+                    payerPartyIdType: req.body.payerPartyIdType,
+                    payerPartyIdentifier: req.body.payerPartyIdentifier,
+                    payerFspId: req.body.payerFspId,
+                    amountType: "SEND",
+                    currency: req.body.currency,
+                    amount: req.body.amount,
+                    scenario: req.body.scenario,
+                    initiator: req.body.initiator,
+                    initiatorType: req.body.initiatorType,
+                    transactionRequestId: req.body.transactionRequestId,
+                    payee: req.body.payee,
+                    payer: req.body.payer,
+                    transactionType: req.body.transactionType,
+                    ilpPacket: "",
+                    extensionList: null,
+                });
+                this.sendSuccessResponse(res, 202, axiosResponse.data);
+            } catch (error: any) {
+                this._logger.error(error);
+                this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+            }
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
     }
 
 
+
+    private sendErrorResponse(res: express.Response, statusCode: number, message: string) {
+        res.status(statusCode).json({message: message});
+    }
+
+    private sendSuccessResponse(res: express.Response, statusCode: number, data: any) {
+        res.status(statusCode).json(data);
+    }
 }
