@@ -56,7 +56,7 @@ const KAFKA_AUDITS_TOPIC = process.env["KAFKA_AUDITS_TOPIC"] || "audits";
 const KAFKA_LOGS_TOPIC = process.env["KAFKA_LOGS_TOPIC"] || "logs";
 const AUDIT_KEY_FILE_PATH = process.env["AUDIT_KEY_FILE_PATH"] || "/app/data/audit_private_key.pem";
 
-const FSIOP_URL = process.env["FSIOP_URL"] || "fspiop.local:4000";
+const FSIOP_URL = process.env["FSIOP_URL"] || "http://fspiop.local";
 const FSIOP_TIMEOUT = process.env["FSIOP_TIMEOUT"] || 30000;
 
 // To be used with AuthenticatedHttpRequester for example
@@ -148,7 +148,7 @@ export class Service {
             // });
 
             // hook actual app routes
-            const routes = new ExpressRoutes(FSIOP_URL, Number(FSIOP_TIMEOUT), this.logger);
+            const routes = new ExpressRoutes(FSIOP_URL, "", Number(FSIOP_TIMEOUT), this.logger);
             this.app.use("/", routes.MainRouter);
 
             this.app.use((req, res) => {

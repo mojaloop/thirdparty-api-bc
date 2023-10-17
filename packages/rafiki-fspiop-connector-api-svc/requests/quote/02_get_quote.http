@@ -1,0 +1,14 @@
+### GET quote with id:
+GET http://{{endpoint}}/mjl-quotes/6ba63d0c-7136-4245-aaca-ecfc4bce9205
+Accept: application/json
+Content-Type: application/json
+FSPIOP-Source: greenbank
+FSPIOP-Destination: bluebank
+
+### GET quote request to FSIOP:
+GET http://fspiop.local/quotes/6ba63d0c-7136-4245-aaca-ecfc4bce9205
+Accept: application/vnd.interoperability.quotes+json;version=1.1
+Content-Type: application/vnd.interoperability.quotes+json;version=1.1
+Date: {{$isoTimestamp}}
+FSPIOP-Source: greenbank
+FSPIOP-Destination: bluebank

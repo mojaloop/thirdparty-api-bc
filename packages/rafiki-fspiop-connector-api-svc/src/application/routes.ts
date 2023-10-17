@@ -42,8 +42,15 @@ export class ExpressRoutes {
     private readonly httpClient: AxiosInstance;
 
     private static readonly UNKNOWN_ERROR_MESSAGE: string = "unknown error";
+    private static readonly CONTENT_TYPE: string = "application/vnd.interoperability.quotes+json;version=1.1";
+    private static readonly FSP_SRC: string = "FSPIOP-Source";
+    private static readonly FSP_DEST: string = "FSPIOP-Destination";
 
-    constructor(fsiopUrl : string, timeoutMs: number, logger:ILogger) {
+    constructor(
+        fsiopUrl : string,
+        accessToken : string,
+        timeoutMs: number, logger:ILogger
+    ) {
         this._logger = logger;
 
         // http client:
@@ -51,18 +58,35 @@ export class ExpressRoutes {
             baseURL: fsiopUrl,
             timeout: timeoutMs
         });
+        // "headers: {"Authorization": `Bearer ${accessToken}`}" could be passed to axios.create(), but that way, due
+        // to a bug, it wouldn't be possible to change the access token later.
+        this.setAccessToken(accessToken);
 
         // endpoints
         this._mainRouter.get("/", this.getExample.bind(this));
         this._mainRouter.get("/version", this.getVersion.bind(this));
 
-        // business endpoints
-        this._mainRouter.post("/mjl-quote", this.postMJLCreateQuote.bind(this));
-        this._mainRouter.post("/quotes", this.postMJLCreateQuote.bind(this));
+        // Rafiki client endpoints:
+        this._mainRouter.post("/mjl-quotes", this.postMJLCreateQuote.bind(this));
+        this._mainRouter.get("/mjl-quotes/:id/", this.getMJLCreateQuote.bind(this));
+
+        // Async MJL API Webhooks
+        this._mainRouter.post("/quotes", this.postQuotes.bind(this));
     }
 
     get MainRouter():express.Router{
         return this._mainRouter;
+    }
+
+    setAccessToken(accessToken: string): void {
+        this.httpClient.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
+        this.httpClient.defaults.headers.common["Accept"] = ExpressRoutes.CONTENT_TYPE;
+        this.httpClient.defaults.headers.common["Content-Type"] = ExpressRoutes.CONTENT_TYPE;
+    }
+
+    setGenericHeaders(fsiopSource: string, fsiopDestination: string): void {
+        if (fsiopSource) this.httpClient.defaults.headers.common[ExpressRoutes.FSP_SRC] = fsiopSource;
+        if (fsiopDestination) this.httpClient.defaults.headers.common[ExpressRoutes.FSP_DEST] = fsiopDestination;
     }
 
     private async getExample(req: express.Request, res: express.Response, next: express.NextFunction){
@@ -91,33 +115,58 @@ export class ExpressRoutes {
 
     private async postMJLCreateQuote(req: express.Request, res: express.Response): Promise<void> {
         try {
+            //TODO update this:
+            const axiosResponse: AxiosResponse = await this.httpClient.post("/quotes", {
+                requesterFspId: req.body.requesterFspId,
+                destinationFspId: req.body.destinationFspId,
+                quoteId: req.body.quoteId,
+                bulkQuoteId: "",
+                transactionId: req.body.transactionId,
+                payeePartyIdType: req.body.payeePartyIdType,
+                payeePartyIdentifier: req.body.payeePartyIdentifier,
+                payeeFspId: req.body.payeeFspId,
+                payerPartyIdType: req.body.payerPartyIdType,
+                payerPartyIdentifier: req.body.payerPartyIdentifier,
+                payerFspId: req.body.payerFspId,
+                amountType: "SEND",
+                currency: req.body.currency,
+                amount: req.body.amount,
+                scenario: req.body.scenario,
+                initiator: req.body.initiator,
+                initiatorType: req.body.initiatorType,
+                transactionRequestId: req.body.transactionRequestId,
+                payee: req.body.payee,
+                payer: req.body.payer,
+                transactionType: req.body.transactionType,
+                ilpPacket: "",
+                extensionList: null,
+            });
+            this.sendSuccessResponse(res, 202, axiosResponse.data);
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
+    }
+
+    private async postQuotes(req: express.Request, res: express.Response): Promise<void> {
+        try {
+
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
+    }
+
+    private async getMJLCreateQuote(req: express.Request, res: express.Response): Promise<void> {
+        try {
             try {
-                const axiosResponse: AxiosResponse = await this.httpClient.put("/quotes", {
-                    requesterFspId: req.body.requesterFspId,
-                    destinationFspId: req.body.destinationFspId,
-                    quoteId: req.body.quoteId,
-                    bulkQuoteId: "",
-                    transactionId: req.body.transactionId,
-                    payeePartyIdType: req.body.payeePartyIdType,
-                    payeePartyIdentifier: req.body.payeePartyIdentifier,
-                    payeeFspId: req.body.payeeFspId,
-                    payerPartyIdType: req.body.payerPartyIdType,
-                    payerPartyIdentifier: req.body.payerPartyIdentifier,
-                    payerFspId: req.body.payerFspId,
-                    amountType: "SEND",
-                    currency: req.body.currency,
-                    amount: req.body.amount,
-                    scenario: req.body.scenario,
-                    initiator: req.body.initiator,
-                    initiatorType: req.body.initiatorType,
-                    transactionRequestId: req.body.transactionRequestId,
-                    payee: req.body.payee,
-                    payer: req.body.payer,
-                    transactionType: req.body.transactionType,
-                    ilpPacket: "",
-                    extensionList: null,
-                });
-                this.sendSuccessResponse(res, 202, axiosResponse.data);
+                const id = req.params.id as string;
+                const src = req.headers[ExpressRoutes.FSP_SRC];
+                const dest = req.headers[ExpressRoutes.FSP_SRC];
+                this.setGenericHeaders(src as string, dest as string);
+
+                const axiosResponse: AxiosResponse = await this.httpClient.get(`/quotes/${id}`);
+                this.sendSuccessResponse(res, 200, axiosResponse.data);
             } catch (error: any) {
                 this._logger.error(error);
                 this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
@@ -127,8 +176,6 @@ export class ExpressRoutes {
             this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
         }
     }
-
-
 
     private sendErrorResponse(res: express.Response, statusCode: number, message: string) {
         res.status(statusCode).json({message: message});

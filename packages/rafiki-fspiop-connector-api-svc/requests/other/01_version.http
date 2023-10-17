@@ -1,0 +1,4 @@
+### GET quote with id:
+GET http://{{endpoint}}/version
+Accept: application/json
+Content-Type: application/json
