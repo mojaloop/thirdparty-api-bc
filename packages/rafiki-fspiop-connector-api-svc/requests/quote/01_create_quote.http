@@ -4,10 +4,26 @@ Content-Type: application/json
 Accept: application/json
 
 {
-    "id": {{$random.uuid}},
-    "price": {{$random.integer()}},
-    "ts": {{$timestamp}},
-    "value": "content"
+    "quoteId": "{{$random.uuid}}",
+    "transactionId": "{{$random.uuid}}",
+    "amount" :  {
+      "amount" : "100",
+      "currency" : "EUR"
+    },
+    "payer" : {
+      "partyIdInfo" : {
+        "fspId" : "greenbank",
+        "partyIdType" : "MSISDN",
+        "partyIdentifier" : "123"
+      }
+    },
+    "payee" : {
+      "partyIdInfo" : {
+        "fspId" : "bluebank",
+        "partyIdType" : "MSISDN",
+        "partyIdentifier" : "456"
+      }
+    }
 }
 
 ### POST quote request to FSIOP:

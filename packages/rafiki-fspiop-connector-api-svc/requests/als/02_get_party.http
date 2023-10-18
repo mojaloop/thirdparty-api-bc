@@ -1,0 +1,13 @@
+### GET party with id:
+GET http://{{endpoint}}/mjl-party/MSISDN/001
+Accept: application/json
+Content-Type: application/json
+FSPIOP-Source: greenbank
+
+### GET party request to FSIOP:
+GET http://fspiop.local/parties/MSISDN/001?currency=EUR
+Accept: application/vnd.interoperability.parties+json;version=1.1
+Content-Type: application/vnd.interoperability.parties+json;version=1.1
+Date: {{$isoTimestamp}}
+FSPIOP-Source: greenbank
+FSPIOP-Destination: greenbank
