@@ -44,6 +44,8 @@ export class ExpressRoutes {
     private static readonly UNKNOWN_ERROR_MESSAGE: string = "unknown error";
     private static readonly CONTENT_TYPE: string = "application/vnd.interoperability.quotes+json;version=1.1";
 
+    private static BY_ID_MAP = new Map<string, string>();
+
     constructor(
         fsiopUrl : string,
         accessToken : string,
@@ -278,8 +280,16 @@ export class ExpressRoutes {
                 const id = req.params.id as string;
                 const src = req.headers["FSPIOP-Source"];
                 const dest = req.headers["FSPIOP-Destination"];
+                const quoteId = req.body.quoteId;
+
                 //TODO this.setGenericHeaders(req, src as string, dest as string);
 
+                /*ExpressRoutes.BY_ID_MAP.set(quoteId, 'WAITING');
+                do {
+                    //TODO sleep a bit, then try again.
+                } while (ExpressRoutes.BY_ID_MAP.get(quoteId) === 'WAITING');*/
+
+                
                 const axiosResponse: AxiosResponse = await this.httpClient.get(`/quotes/${id}`);
                 this.sendSuccessResponse(res, 200, axiosResponse.data);
             } catch (error: any) {
