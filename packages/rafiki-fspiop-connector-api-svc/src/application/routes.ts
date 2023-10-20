@@ -44,7 +44,7 @@ export class ExpressRoutes {
     private static readonly UNKNOWN_ERROR_MESSAGE: string = "unknown error";
     private static readonly CONTENT_TYPE: string = "application/vnd.interoperability.quotes+json;version=1.1";
 
-    private static BY_ID_MAP = new Map<string, string>();
+    private static BY_ID_MAP = new Map<string, any>();
 
     constructor(
         fsiopUrl : string,
@@ -73,8 +73,10 @@ export class ExpressRoutes {
         this._mainRouter.get("/mjl-quotes/:id/", this.getMJLCreateQuote.bind(this));
 
         // Async MJL API Webhooks
-        this._mainRouter.put("/quotes/:quoteId", this.putQuoteResponse.bind(this));
-        this._mainRouter.put("/transfers/:transferId", this.putTransferResponse.bind(this));
+        this._mainRouter.get("/parties/MSISDN/:msisdn", this.mjlGetParties.bind(this));
+        this._mainRouter.put("/parties/MSISDN/:msisdn", this.mjlPutPartiesResponse.bind(this));
+        this._mainRouter.put("/quotes/:quoteId", this.mjlPutQuoteResponse.bind(this));
+        this._mainRouter.put("/transfers/:transferId", this.mjlPutTransferResponse.bind(this));
     }
 
     get MainRouter():express.Router{
@@ -114,8 +116,11 @@ export class ExpressRoutes {
     private async postMJLLookupParties(req: express.Request, res: express.Response): Promise<void> {
         try {
             const fsp = req.body.fsp as string;
+            const msisdn = req.body.msisdn;
+            const currency = req.body.currency;
+            const key = msisdn;
             const axiosResponse: AxiosResponse = await this.httpClient.get(
-                `/parties/MSISDN/${req.body.msisdn}?currency=${req.body.currency}`, {
+                `/parties/MSISDN/${msisdn}?currency=${currency}`, {
                     headers: {
                         'FSPIOP-Source' : fsp,
                         'FSPIOP-Destination': fsp,
@@ -125,11 +130,21 @@ export class ExpressRoutes {
                     }
                 }
             );
-            this.sendSuccessResponse(res, axiosResponse.status, {
-                status: axiosResponse.status,
-                quoteId: req.body.quoteId,
-                transactionId: req.body.transactionId
-            });
+            ExpressRoutes.BY_ID_MAP.set(key, 'WAITING');
+
+            let counter = 0;
+            do {
+                counter++;
+                await new Promise(f => setTimeout(f, 500));
+            } while (ExpressRoutes.BY_ID_MAP.get(key) === 'WAITING' && counter < 20);
+
+            const returnVal = ExpressRoutes.BY_ID_MAP.get(key);
+            if (returnVal === "WAITING") {
+                this.sendSuccessResponse(res, 404, {
+                    status: 404,
+                    message: "No response from lookup."
+                });
+            } else this.sendSuccessResponse(res, 200, returnVal);
         } catch (error: any) {
             this._logger.error(error);
             this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
@@ -206,7 +221,7 @@ export class ExpressRoutes {
         }
     }
 
-    private async putQuoteResponse(req: express.Request, res: express.Response): Promise<void> {
+    private async mjlPutQuoteResponse(req: express.Request, res: express.Response): Promise<void> {
         try {
             this._logger.info('putQuoteResponse');
             this._logger.info(req);
@@ -275,11 +290,70 @@ export class ExpressRoutes {
         }
     }
 
-    private async putTransferResponse(req: express.Request, res: express.Response): Promise<void> {
+    private async mjlPutTransferResponse(req: express.Request, res: express.Response): Promise<void> {
         try {
             //TODO call rafiki [finalizeMojaloopTransfer]::::
             this.sendSuccessResponse(res, 200, {
                 body: null,
+                status: 200
+            });
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
+    }
+
+    private async mjlGetParties(req: express.Request, res: express.Response): Promise<void> {
+        try {
+            const msisdn = req.params.msisdn as string;
+            const fsp = req.headers['FSPIOP-Source'] as string;
+
+            // Provide FSIOP with the results:
+            const axiosResponse: AxiosResponse = await this.httpClient.put(
+                `/parties/MSISDN/${msisdn}`, {
+                    party : {
+                        partyIdInfo: {
+                            partyIdType: "MSISDN",
+                            partyIdentifier: msisdn,
+                            fspId: fsp
+                        },
+                        merchantClassificationCode : "2795",
+                        personalInfo: {
+                            dateOfBirth : "1942-10-01",
+                            complexName: {
+                                lastName: "Smith",
+                                middleName: "P",
+                                firstName: "Daniel"
+                            }
+                        },
+                        name: "John"
+                    }
+                }, {
+                    headers: {
+                        'FSPIOP-Source' : fsp,
+                        'FSPIOP-Destination' : fsp,
+                        'FSPIOP-Date' : new Date().toUTCString(),
+                        'Accept': 'application/vnd.interoperability.transfers+json;version=1.1',
+                        'Content-Type': 'application/vnd.interoperability.transfers+json;version=1.1'
+                    }
+                }
+            );
+            this.sendSuccessResponse(res, 200, {
+                body: null,
+                status: 200
+            });
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
+    }
+
+    private async mjlPutPartiesResponse(req: express.Request, res: express.Response): Promise<void> {
+        try {
+            const msisdn = req.params.msisdn as string;
+            ExpressRoutes.BY_ID_MAP.set(msisdn, req.body);
+
+            this.sendSuccessResponse(res, 200, {
                 status: 200
             });
         } catch (error: any) {

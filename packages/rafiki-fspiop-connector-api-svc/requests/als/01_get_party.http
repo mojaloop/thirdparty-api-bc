@@ -9,6 +9,15 @@ Content-Type: application/json
   "currency": "EUR"
 }
 
+### GET party with id:
+# PUT http://{{endpoint}}/parties/MSISDN/123
+Accept: application/json
+Content-Type: application/json
+
+{
+  "name": "John"
+}
+
 ### GET party request to FSIOP:
 GET http://fspiop.local/parties/MSISDN/001?currency=EUR
 Accept: application/vnd.interoperability.parties+json;version=1.1
