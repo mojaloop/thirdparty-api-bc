@@ -67,14 +67,14 @@ export class ExpressRoutes {
         this._mainRouter.get("/version", this.getVersion.bind(this));
 
         // Rafiki client endpoints:
+        this._mainRouter.post("/mjl-parties", this.postMJLLookupParties.bind(this));
         this._mainRouter.post("/mjl-quotes", this.postMJLCreateQuote.bind(this));
         this._mainRouter.post("/mjl-transfers", this.postMJLCreateTransfer.bind(this));
-
         this._mainRouter.get("/mjl-quotes/:id/", this.getMJLCreateQuote.bind(this));
 
         // Async MJL API Webhooks
-        this._mainRouter.put("/quotes/:quoteId", this.putQuoteResponseQuotes.bind(this));
-        this._mainRouter.put("/transfers/:transferId", this.putTransferResponseTransfers.bind(this));
+        this._mainRouter.put("/quotes/:quoteId", this.putQuoteResponse.bind(this));
+        this._mainRouter.put("/transfers/:transferId", this.putTransferResponse.bind(this));
     }
 
     get MainRouter():express.Router{
@@ -111,6 +111,31 @@ export class ExpressRoutes {
         });*/
     }
 
+    private async postMJLLookupParties(req: express.Request, res: express.Response): Promise<void> {
+        try {
+            const fsp = req.body.fsp as string;
+            const axiosResponse: AxiosResponse = await this.httpClient.get(
+                `/parties/MSISDN/${req.body.msisdn}?currency=${req.body.currency}`, {
+                    headers: {
+                        'FSPIOP-Source' : fsp,
+                        'FSPIOP-Destination': fsp,
+                        'Date' : new Date().toUTCString(),
+                        'Accept': 'application/vnd.interoperability.parties+json;version=1.1',
+                        'Content-Type': 'application/vnd.interoperability.parties+json;version=1.1'
+                    }
+                }
+            );
+            this.sendSuccessResponse(res, axiosResponse.status, {
+                status: axiosResponse.status,
+                quoteId: req.body.quoteId,
+                transactionId: req.body.transactionId
+            });
+        } catch (error: any) {
+            this._logger.error(error);
+            this.sendErrorResponse(res, 500, error.message || ExpressRoutes.UNKNOWN_ERROR_MESSAGE);
+        }
+    }
+
     private async postMJLCreateQuote(req: express.Request, res: express.Response): Promise<void> {
         try {
             const src = req.body.payer.partyIdInfo.fspId;
@@ -133,12 +158,14 @@ export class ExpressRoutes {
                     headers: {
                         'FSPIOP-Source' : src as string,
                         'FSPIOP-Destination': dest as string,
-                        'FSPIOP-Date' : new Date().toUTCString()
+                        'FSPIOP-Date' : new Date().toUTCString(),
+                        'Accept': 'application/vnd.interoperability.quotes+json;version=1.1',
+                        'Content-Type': 'application/vnd.interoperability.quotes+json;version=1.1'
                     }
                 }
             );
-            this.sendSuccessResponse(res, 202, {
-                status: 'ACKNOWLEDGED',
+            this.sendSuccessResponse(res, axiosResponse.status, {
+                status: axiosResponse.status,
                 quoteId: req.body.quoteId,
                 transactionId: req.body.transactionId
             });
@@ -150,33 +177,15 @@ export class ExpressRoutes {
 
     private async postMJLCreateTransfer(req: express.Request, res: express.Response): Promise<void> {
         try {
-            const src = req.body.payer.partyIdInfo.fspId;
-            const dest = req.body.payee.partyIdInfo.fspId;
-            /*
-            curl 'http://vnextadmin/_interop/transfers' \
-  -H 'Accept-Language: en-US,en;q=0.9,af;q=0.8,nl;q=0.7,da;q=0.6,de;q=0.5' \
-  -H 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImpmakJrQlV0TmVMV2xmcjhoQTRyMlhYMWtLYzJ2Rm4yRThhTVF6dHNrWTAifQ.eyJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzZWN1cml0eS1iYy11aSIsInJvbGVzIjpbImFkbWluIl0sImlhdCI6MTY5NzUzODI1MywiZXhwIjoxNjk4MTQzMDUzLCJhdWQiOiJtb2phbG9vcC52bmV4dC5kZXYuZGVmYXVsdF9hdWRpZW5jZSIsImlzcyI6Im1vamFsb29wLnZuZXh0LmRldi5kZWZhdWx0X2lzc3VlciIsInN1YiI6InVzZXI6OmFkbWluIiwianRpIjoiYzJhYzFlYWYtOGM0MS00NzhlLWIzZjgtNjc3ODY3YTVkYzcxIn0.a2iokdFzLVMN8srgQW_ZL55-Xa1PwexchcpSKxmvcCLItq98Ysb7GK7Klzrc2zJqc-40tfpesDOfF_RPpleZ71yB54ilzCDiHrS_tEoXwWVv0JJoRs1Mjy9KieNdxAUvDb3PwNxivyhpBWDdmIXX9dFImbX4UlNxxOWl9AOzkKvwkpl5VS8tKl0HKU1AuqCPDSaKrZOIKC_uUtHLvTVTPf7s57ounY47ixq38tpMnC2sCJ9acjTlyiQyAdbX158rZtsBE0aJtyEHptJLNETvyY2C437csQyIapPHoyG4BUBT0311Fc2EiwiHsWrtJ3uf0CPWvIW93-rMiPraCodwjQ' \
-  -H 'Connection: keep-alive' \
-  -H 'Origin: http://vnextadmin' \
-  -H 'Referer: http://vnextadmin/transfers/new?quoteId=6381c869-e5aa-4fcd-bdfe-8bed6d8a9baf' \
-  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36' \
-  -H 'accept: application/vnd.interoperability.transfers+json;version=1.1' \
-  -H 'content-type: application/vnd.interoperability.transfers+json;version=1.1' \
-  -H 'fspiop-date: 2023-10-18T14:03:01.390Z' \
-  -H 'fspiop-source: greenbank' \
-  -H 'sec-gpc: 1' \
-  --data-raw '{"transferId":"6aa85924-ee9d-440e-a707-f9ad81c59809","amount":{"currency":"EUR","amount":"10"},"payeeFsp":"bluebank","payerFsp":"greenbank","ilpPacket":"AYICUgAAAAAAAAPoFWcuYmx1ZWJhbmsubXNpc2RuLjQ1NoICMGV5SjBjbUZ1YzJGamRHbHZia2xrSWpvaU5tRmhPRFU1TWpRdFpXVTVaQzAwTkRCbExXRTNNRGN0WmpsaFpEZ3hZelU1T0RBNUlpd2ljWFZ2ZEdWSlpDSTZJall6T0RGak9EWTVMV1UxWVdFdE5HWmpaQzFpWkdabExUaGlaV1EyWkRoaE9XSmhaaUlzSW5CaGVXVmxJanA3SW5CaGNuUjVTV1JKYm1adklqcDdJbkJoY25SNVNXUlVlWEJsSWpvaVRWTkpVMFJPSWl3aWNHRnlkSGxKWkdWdWRHbG1hV1Z5SWpvaU5EVTJJaXdpWm5Od1NXUWlPaUppYkhWbFltRnVheUo5ZlN3aWNHRjVaWElpT25zaWNHRnlkSGxKWkVsdVptOGlPbnNpY0dGeWRIbEpaRlI1Y0dVaU9pSk5VMGxUUkU0aUxDSndZWEowZVVsa1pXNTBhV1pwWlhJaU9pSXhNak1pTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA","condition":"CBua1ptN2l4qmcDCzg8Y_E4sfh71p0oCcrLI2M3WyT0","expiration":"2023-10-19T14:02:49.473Z"}' \
-  --compressed \
-  --insecure
-             */
-
+            const src = req.body.payerFsp;
             const axiosResponse: AxiosResponse = await this.httpClient.post(
                 "/transfers/", {
                     transferId: req.body.transferId,
                     amount: req.body.amount,
                     payeeFsp: req.body.payeeFsp,
-                    payerFsp: req.body.payer,
-                    // TODO expiration: "2023-10-19T14:02:49.473Z"
+                    payerFsp: req.body.payerFsp,
+                    "ilpPacket": "AYICUgAAAAAAAAPoFWcuYmx1ZWJhbmsubXNpc2RuLjQ1NoICMGV5SjBjbUZ1YzJGamRHbHZia2xrSWpvaU5tRmhPRFU1TWpRdFpXVTVaQzAwTkRCbExXRTNNRGN0WmpsaFpEZ3hZelU1T0RBNUlpd2ljWFZ2ZEdWSlpDSTZJall6T0RGak9EWTVMV1UxWVdFdE5HWmpaQzFpWkdabExUaGlaV1EyWkRoaE9XSmhaaUlzSW5CaGVXVmxJanA3SW5CaGNuUjVTV1JKYm1adklqcDdJbkJoY25SNVNXUlVlWEJsSWpvaVRWTkpVMFJPSWl3aWNHRnlkSGxKWkdWdWRHbG1hV1Z5SWpvaU5EVTJJaXdpWm5Od1NXUWlPaUppYkhWbFltRnVheUo5ZlN3aWNHRjVaWElpT25zaWNHRnlkSGxKWkVsdVptOGlPbnNpY0dGeWRIbEpaRlI1Y0dVaU9pSk5VMGxUUkU0aUxDSndZWEowZVVsa1pXNTBhV1pwWlhJaU9pSXhNak1pTENKbWMzQkpaQ0k2SW1keVpXVnVZbUZ1YXlKOWZTd2lZVzF2ZFc1MElqcDdJbU4xY25KbGJtTjVJam9pUlZWU0lpd2lZVzF2ZFc1MElqb2lNVEFpZlN3aWRISmhibk5oWTNScGIyNVVlWEJsSWpwN0luTmpaVzVoY21sdklqb2lSRVZRVDFOSlZDSXNJbWx1YVhScFlYUnZjaUk2SWxCQldVVlNJaXdpYVc1cGRHbGhkRzl5Vkhsd1pTSTZJa0pWVTBsT1JWTlRJbjE5AA",
+                    "condition": "CBua1ptN2l4qmcDCzg8Y_E4sfh71p0oCcrLI2M3WyT0",
                     expiration: new Date(Date.now() + 30_000).toISOString()
                 }, {
                     headers: {
@@ -187,8 +196,9 @@ export class ExpressRoutes {
                     }
                 }
             );
-            this.sendSuccessResponse(res, 202, {
-                status: 'ACKNOWLEDGED'
+            this.sendSuccessResponse(res, axiosResponse.status, {
+                status: axiosResponse.status,
+                transferId: req.body.transferId
             });
         } catch (error: any) {
             this._logger.error(error);
@@ -196,8 +206,13 @@ export class ExpressRoutes {
         }
     }
 
-    private async putQuoteResponseQuotes(req: express.Request, res: express.Response): Promise<void> {
+    private async putQuoteResponse(req: express.Request, res: express.Response): Promise<void> {
         try {
+            this._logger.info('putQuoteResponse');
+            this._logger.info(req);
+            this._logger.info(req.body);
+            this._logger.info(req.headers);
+
             const uniqueId = randomUUID();
             //TODO call rafiki [finalizeMojaloopQuote]::::
             /*
@@ -249,7 +264,6 @@ export class ExpressRoutes {
              */
 
             // TODO As green bank, we receive the quote and send to green bank.
-            
             this.sendSuccessResponse(res, 200, {
                 status: 200,
                 body: null,
@@ -261,7 +275,7 @@ export class ExpressRoutes {
         }
     }
 
-    private async putTransferResponseTransfers(req: express.Request, res: express.Response): Promise<void> {
+    private async putTransferResponse(req: express.Request, res: express.Response): Promise<void> {
         try {
             //TODO call rafiki [finalizeMojaloopTransfer]::::
             this.sendSuccessResponse(res, 200, {

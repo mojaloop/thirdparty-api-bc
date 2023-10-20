@@ -1,32 +1,19 @@
-### Send request with dynamic variables in request's body
-POST http://{{endpoint}}/mjl-quotes/
+### POST a Mojaloop transfer:
+POST http://{{endpoint}}/mjl-transfers/
 Content-Type: application/json
 Accept: application/json
 
 {
-    "quoteId": "{{$random.uuid}}",
-    "transactionId": "{{$random.uuid}}",
-    "amount" :  {
-      "amount" : "100",
-      "currency" : "EUR"
-    },
-    "payer" : {
-      "partyIdInfo" : {
-        "fspId" : "greenbank",
-        "partyIdType" : "MSISDN",
-        "partyIdentifier" : "123"
-      }
-    },
-    "payee" : {
-      "partyIdInfo" : {
-        "fspId" : "bluebank",
-        "partyIdType" : "MSISDN",
-        "partyIdentifier" : "456"
-      }
-    }
+  "transferId": "{{$random.uuid}}",
+  "amount": {
+    "currency": "EUR",
+    "amount": "12"
+  },
+  "payeeFsp": "bluebank",
+  "payerFsp": "greenbank"
 }
 
-### POST quote request to FSIOP:
+### POST transfer request to FSIOP:
 POST http://fspiop.local/transfers/
 Accept: application/vnd.interoperability.transfers+json;version=1.1
 Content-Type: application/vnd.interoperability.transfers+json;version=1.1

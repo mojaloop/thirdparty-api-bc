@@ -1,8 +1,13 @@
 ### GET party with id:
-GET http://{{endpoint}}/mjl-party/MSISDN/001
+POST http://{{endpoint}}/mjl-parties/
 Accept: application/json
 Content-Type: application/json
-FSPIOP-Source: greenbank
+
+{
+  "fsp": "greenbank",
+  "msisdn": "123",
+  "currency": "EUR"
+}
 
 ### GET party request to FSIOP:
 GET http://fspiop.local/parties/MSISDN/001?currency=EUR

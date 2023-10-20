@@ -1,4 +1,33 @@
-### GET quote with id:
-GET http://{{endpoint}}/version
-Accept: application/json
+### Send a quote, followed by a transfer.
+POST http://{{endpoint}}/mjl-quotes/
 Content-Type: application/json
+Accept: application/json
+
+{
+    "quoteId": "{{$random.uuid}}",
+    "transactionId": "{{$random.uuid}}",
+    "amount" :  {
+      "amount" : "100",
+      "currency" : "EUR"
+    },
+    "payer" : {
+      "partyIdInfo" : {
+        "fspId" : "greenbank",
+        "partyIdType" : "MSISDN",
+        "partyIdentifier" : "123"
+      }
+    },
+    "payee" : {
+      "partyIdInfo" : {
+        "fspId" : "bluebank",
+        "partyIdType" : "MSISDN",
+        "partyIdentifier" : "456"
+      }
+    }
+}
+
+
+> {%
+  client.global.set("last_transaction_id", response.body.transactionId);
+  client.global.set("last_quote_id", response.body.quoteId);
+%}
