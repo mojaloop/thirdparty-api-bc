@@ -1,6 +1,6 @@
 {
     "name": "@mojaloop/thirdparty-api-bc-rafiki-fspiop-connector-api-svc",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "mojaloop rafiki to fspiop connector api service",
     "license": "Apache-2.0",
     "homepage": "https://github.com/mojaloop/thirdparty-api-bc/",
