@@ -1,7 +1,7 @@
-# Typescript BC Template - Example Service
+# ThirdParty API BC - Rafiki FSPIOP Connector API Service
 
 
-Mojaloop vNext Typescript BC Template Example Service
+Mojaloop vNext ThirdParty API BC Rafiki FSPIOP Connector API Service
 
 #Notes
 
@@ -40,3 +40,17 @@ npm run test:unit
 ```bash
 npm run test:integration
 ```
+
+## Configuration 
+
+### Environment variables
+
+| Environment Variable | Description    | Example Values         |
+|---------------------|-----------------|-----------------------------------------|
+| LOG_LEVEL            | Logging level for the application                  | LogLevel.DEBUG        |
+| PRODUCTION_MODE      | Flag indicating production mode   | FALSE                  |
+| KAFKA_URL       | Kafka broker URL     | localhost:9092          |
+| KAFKA_LOGS_TOPIC      | Kafka topic for logs          | logs    |
+| KAFKA_AUDITS_TOPIC        | Kafka topic for audits              | audits                 |
+| AUDIT_KEY_FILE_PATH  | File path for audit key           | /app/data/audit_private_key.pem       |
+| FSIOP_URL     | FSPIOP Service URL | http://fspiop.local | 
